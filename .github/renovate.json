@@ -1,0 +1,34 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Every upstream release gets built: automerge everything here; homelab gates rollout.",
+  "extends": [
+    "config:recommended"
+  ],
+  "assignees": [
+    "csobrinho"
+  ],
+  "fetchChangeLogs": "pr",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Upstream version pinned in images/<name>/image.yaml",
+      "managerFilePatterns": [
+        "/^images/[^/]+/image\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s+version:\\s+\"?(?<currentValue>[^\"\\s]+)\"?"
+      ],
+      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver-coerced{{/if}}"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Strata tags hotfixes as a 4th part (v0.1.40.1)",
+      "matchDepNames": [
+        "Niko1221/Strata"
+      ],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:\\.(?<build>\\d+))?$"
+    }
+  ],
+  "automerge": true
+}
