@@ -8,6 +8,16 @@
     "csobrinho"
   ],
   "fetchChangeLogs": "pr",
+  "customDatasources": {
+    "talos-factory": {
+      "description": "Talos versions the image factory can build; same feed homelab upgrades Talos from",
+      "defaultRegistryUrlTemplate": "https://factory.talos.dev/versions",
+      "format": "json",
+      "transformTemplates": [
+        "{\"releases\": [$.{\"version\": $}]}"
+      ]
+    }
+  },
   "customManagers": [
     {
       "customType": "regex",

@@ -1,0 +1,84 @@
+name: wolf-nvidia-driver
+
+# Only this image's inputs trigger a build: a Renovate bump of the Talos release in
+# images/wolf-nvidia-driver/image.yaml rebuilds this image and nothing else. PRs build without
+# pushing; main pushes.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - images/wolf-nvidia-driver/**
+      - .github/workflows/wolf-nvidia-driver.yml
+      - .github/workflows/build-image.yml
+  pull_request:
+    paths:
+      - images/wolf-nvidia-driver/**
+      - .github/workflows/wolf-nvidia-driver.yml
+      - .github/workflows/build-image.yml
+
+concurrency:
+  group: wolf-nvidia-driver-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  SPEC: images/wolf-nvidia-driver/image.yaml
+
+jobs:
+  # The driver must be the one Talos loads, so it comes from the extensions repo at the same
+  # release, never from NVIDIA's latest.
+  driver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Read image spec
+        id: spec
+        run: |
+          {
+            echo "talos=$(yq -r '.version' "$SPEC")"
+            echo "driver_branch=$(yq -r '.driverBranch' "$SPEC")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Talos extensions
+        uses: actions/checkout@v7
+        with:
+          repository: siderolabs/extensions
+          ref: ${{ steps.spec.outputs.talos }}
+          path: talos-extensions
+          sparse-checkout: nvidia-gpu/vars.yaml
+          sparse-checkout-cone-mode: false
+
+      - name: Resolve the NVIDIA driver version
+        id: resolve
+        env:
+          BRANCH: ${{ steps.spec.outputs.driver_branch }}
+          TALOS: ${{ steps.spec.outputs.talos }}
+        run: |
+          key="NVIDIA_DRIVER_${BRANCH^^}_VERSION"
+          version=$(yq -r ".${key} // \"\"" talos-extensions/nvidia-gpu/vars.yaml)
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "::error::${key} not found in siderolabs/extensions nvidia-gpu/vars.yaml (got '${version}')"
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Talos ${TALOS}: NVIDIA ${BRANCH} driver ${version}" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: driver
+    uses: ./.github/workflows/build-image.yml
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    with:
+      image: wolf-nvidia-driver
+      build-args: NV_VERSION=${{ needs.driver.outputs.version }}
+      tags: type=raw,value=${{ needs.driver.outputs.version }}

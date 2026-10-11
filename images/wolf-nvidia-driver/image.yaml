@@ -1,0 +1,16 @@
+# NVIDIA userspace driver (64- and 32-bit libs, Vulkan/EGL/GBM) for Wolf's app containers in
+# homelab's games namespace, built from GoW's images/nvidia-driver Dockerfile.
+# Published as ghcr.io/csobrinho/wolf-nvidia-driver:<version> (the Talos release) and
+# :<driver version>.
+upstream: games-on-whales/gow
+ref: bc4bb677e3376e17265317f23d887ecf42de8972
+context: images/nvidia-driver
+# The installer stage keeps a shell and coreutils, so the homelab init container can copy the
+# driver out; the upstream final stage is FROM scratch.
+target: nvidia-installer
+# NVIDIA branch of the Talos extension in use (nvidia-open-gpu-kernel-modules-<branch>); the build
+# reads NVIDIA_DRIVER_<BRANCH>_VERSION from siderolabs/extensions at <version>.
+driverBranch: production
+# Talos release whose driver this image matches, on the same feed homelab upgrades Talos from.
+# renovate: datasource=custom.talos-factory depName=siderolabs/talos versioning=semver
+version: v1.14.2
