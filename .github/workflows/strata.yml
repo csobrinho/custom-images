@@ -9,101 +9,27 @@ on:
     paths:
       - images/strata/**
       - .github/workflows/strata.yml
+      - .github/workflows/build-image.yml
   pull_request:
     paths:
       - images/strata/**
       - .github/workflows/strata.yml
+      - .github/workflows/build-image.yml
 
 concurrency:
   group: strata-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE: ghcr.io/${{ github.repository_owner }}/strata
-  SPEC: images/strata/image.yaml
-
 jobs:
   build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 300
+    uses: ./.github/workflows/build-image.yml
     permissions:
       contents: read
       packages: write
       attestations: write
       id-token: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Read image spec
-        id: spec
-        run: |
-          {
-            echo "upstream=$(yq -r '.upstream' "$SPEC")"
-            echo "version=$(yq -r '.version' "$SPEC")"
-            echo "build_args<<EOF"
-            yq -r '.buildArgs // {} | to_entries | .[] | .key + "=" + .value' "$SPEC"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Checkout upstream
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ steps.spec.outputs.upstream }}
-          ref: ${{ steps.spec.outputs.version }}
-          path: upstream
-
+    with:
+      image: strata
       # The CUDA devel base + compiled engine don't fit in a stock runner's free disk.
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL \
-            /usr/local/share/boost /usr/local/.ghcup
-          sudo docker image prune -af
-          df -h /
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      # Fork PRs get no packages:write token: build only, no cache writes.
-      - name: Log in to the Container registry
-        if: github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.IMAGE }}
-          tags: |
-            type=raw,value=${{ steps.spec.outputs.version }}
-            type=raw,value=latest,enable={{is_default_branch}}
-          labels: |
-            org.opencontainers.image.version=${{ steps.spec.outputs.version }}
-            org.opencontainers.image.url=https://github.com/${{ steps.spec.outputs.upstream }}
-
-      # Registry cache: the PR build warms it, so the main build after merge skips the compile.
-      - name: Build and push
-        id: push
-        uses: docker/build-push-action@v7
-        with:
-          context: upstream
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ steps.spec.outputs.build_args }}
-          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
-          cache-to: ${{ (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) && format('type=registry,ref={0}:buildcache,mode=min', env.IMAGE) || '' }}
-
-      - name: Generate artifact attestation
-        if: github.event_name != 'pull_request'
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-name: ${{ env.IMAGE }}
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
+      free-disk-space: true
+      timeout-minutes: 300

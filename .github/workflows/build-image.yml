@@ -1,0 +1,121 @@
+name: build-image
+
+# The build every image shares, called from the image's own workflow (which owns the triggers):
+# reads images/<image>/image.yaml and builds the upstream Dockerfile at the pinned ref. PRs build
+# without pushing; main pushes. Callers grant contents: read, packages: write, attestations: write
+# and id-token: write.
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: Directory under images/, also the package name on ghcr.io
+        required: true
+        type: string
+      build-args:
+        description: Build args (KEY=value per line) on top of the spec's buildArgs
+        type: string
+        default: ""
+      tags:
+        description: docker/metadata-action tag rules on top of the spec version and latest
+        type: string
+        default: ""
+      free-disk-space:
+        description: Clear the runner's preinstalled toolchains first, for builds that outgrow its disk
+        type: boolean
+        default: false
+      timeout-minutes:
+        type: number
+        default: 60
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/${{ github.repository_owner }}/${{ inputs.image }}
+  SPEC: images/${{ inputs.image }}/image.yaml
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # ref defaults to version; context and target to the upstream root and its last stage.
+      - name: Read image spec
+        id: spec
+        run: |
+          {
+            echo "upstream=$(yq -r '.upstream' "$SPEC")"
+            echo "version=$(yq -r '.version' "$SPEC")"
+            echo "ref=$(yq -r '.ref // .version' "$SPEC")"
+            echo "context=$(yq -r '.context // "."' "$SPEC")"
+            echo "target=$(yq -r '.target // ""' "$SPEC")"
+            echo "build_args<<EOF"
+            yq -r '.buildArgs // {} | to_entries | .[] | .key + "=" + .value' "$SPEC"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout upstream
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.spec.outputs.upstream }}
+          ref: ${{ steps.spec.outputs.ref }}
+          path: upstream
+
+      - name: Free disk space
+        if: inputs.free-disk-space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL \
+            /usr/local/share/boost /usr/local/.ghcup
+          sudo docker image prune -af
+          df -h /
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Fork PRs get no packages:write token: build only, no cache writes.
+      - name: Log in to the Container registry
+        if: github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=${{ steps.spec.outputs.version }}
+            type=raw,value=latest,enable={{is_default_branch}}
+            ${{ inputs.tags }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.spec.outputs.version }}
+            org.opencontainers.image.url=https://github.com/${{ steps.spec.outputs.upstream }}
+
+      # Registry cache: the PR build warms it, so the main build after merge skips the compile.
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: upstream/${{ steps.spec.outputs.context }}
+          target: ${{ steps.spec.outputs.target }}
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            ${{ steps.spec.outputs.build_args }}
+            ${{ inputs.build-args }}
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
+          cache-to: ${{ (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) && format('type=registry,ref={0}:buildcache,mode=min', env.IMAGE) || '' }}
+
+      - name: Generate artifact attestation
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
