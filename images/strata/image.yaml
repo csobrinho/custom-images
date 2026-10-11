@@ -2,7 +2,7 @@
 # Published as ghcr.io/csobrinho/strata:<version>.
 upstream: Niko1221/Strata
 # renovate: datasource=github-releases depName=Niko1221/Strata
-version: v0.1.42
+version: v0.1.43
 buildArgs:
   CUDA_ARCHITECTURES: "120" # RTX 5090 only; cuts the CUDA compile a lot.
   BUILD_VISION: "0"
