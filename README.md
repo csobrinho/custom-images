@@ -4,9 +4,10 @@ Container images that need a custom build (no upstream image, or one compiled fo
 hardware). Each image lives in `images/<name>/` and has its own workflow, triggered only by changes
 to that directory, so a Renovate bump rebuilds just that image.
 
-| Image                      | Upstream                                              | Notes                        |
-| -------------------------- | ----------------------------------------------------- | ---------------------------- |
-| `ghcr.io/csobrinho/strata` | [Niko1221/Strata](https://github.com/Niko1221/Strata) | sm_120 (RTX 5090), no vision |
+| Image                                  | Upstream                                                      | Notes                                   |
+| -------------------------------------- | ------------------------------------------------------------- | --------------------------------------- |
+| `ghcr.io/csobrinho/strata`             | [Niko1221/Strata](https://github.com/Niko1221/Strata)         | sm_120 (RTX 5090), no vision            |
+| `ghcr.io/csobrinho/wolf-nvidia-driver` | [games-on-whales/gow](https://github.com/games-on-whales/gow) | tags: Talos release + its NVIDIA driver |
 
 ## Layout
 
