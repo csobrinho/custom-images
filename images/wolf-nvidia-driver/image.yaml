@@ -13,4 +13,4 @@ target: nvidia-installer
 driverBranch: production
 # Talos release whose driver this image matches, on the same feed homelab upgrades Talos from.
 # renovate: datasource=custom.talos-factory depName=siderolabs/talos versioning=semver
-version: v1.14.3
+version: v1.14.4
