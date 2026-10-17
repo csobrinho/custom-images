@@ -6,13 +6,17 @@ to that directory, so a Renovate bump rebuilds just that image.
 
 | Image                                  | Upstream                                                      | Notes                                   |
 | -------------------------------------- | ------------------------------------------------------------- | --------------------------------------- |
-| `ghcr.io/csobrinho/strata`             | [Niko1221/Strata](https://github.com/Niko1221/Strata)         | sm_120 (RTX 5090), no vision            |
+| `ghcr.io/csobrinho/strata`             | [Niko1221/Strata](https://github.com/Niko1221/Strata)         | sm_120 (RTX 5090), Zen 3, no vision ¹   |
 | `ghcr.io/csobrinho/wolf-nvidia-driver` | [games-on-whales/gow](https://github.com/games-on-whales/gow) | tags: Talos release + its NVIDIA driver |
+
+¹ The engine is built with `-march=znver3` for one AMD EPYC 7J13 host. It may crash with "Illegal
+instruction" on other CPUs: for those, use upstream's own build instead.
 
 ## Layout
 
 - `images/<name>/image.yaml`: upstream repo, pinned `version` (tracked by Renovate), and optionally
-  `ref` (defaults to `version`), `context`, `target` and `buildArgs`.
+  `ref` (defaults to `version`), `context`, `target`, `buildArgs` and `prepare` (a script run in
+  the upstream checkout before the build).
 - `.github/workflows/build-image.yml`: the shared build, a reusable workflow. It builds the upstream
   Dockerfile at that ref; PRs build only, `main` pushes `<version>` and `latest` with a
   build-provenance attestation.
