@@ -6,3 +6,8 @@ version: v0.1.44.1
 buildArgs:
   CUDA_ARCHITECTURES: "120" # RTX 5090 only; cuts the CUDA compile a lot.
   BUILD_VISION: "0"
+# Upstream builds the engine -march=native for the build host: an AVX-512 runner yields SIGILL on
+# the AVX2-only EPYC 7J13. STRATA_PORTABLE pins an AVX2 baseline; fail if the line moves.
+prepare: |
+  sed -i 's/"-DSTRATA_BUILD_TESTS=OFF",/"-DSTRATA_BUILD_TESTS=OFF", "-DSTRATA_PORTABLE=ON",/' Dockerfile
+  grep -q '"-DSTRATA_PORTABLE=ON"' Dockerfile
