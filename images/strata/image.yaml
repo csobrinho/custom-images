@@ -6,3 +6,9 @@ version: v0.1.44.1
 buildArgs:
   CUDA_ARCHITECTURES: "120" # RTX 5090 only; cuts the CUDA compile a lot.
   BUILD_VISION: "0"
+# Upstream builds the engine -march=native for the runner; target the host's EPYC 7J13 (Zen 3).
+prepare: |
+  for d in STRATA_PORTABLE=ON CMAKE_C_FLAGS=-march=znver3 CMAKE_CXX_FLAGS=-march=znver3; do
+    sed -i "s/\"-DSTRATA_BUILD_TESTS=OFF\",/& \"-D$d\",/" Dockerfile
+  done
+  grep -q '"-DCMAKE_CXX_FLAGS=-march=znver3"' Dockerfile

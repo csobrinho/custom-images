@@ -50,6 +50,9 @@ jobs:
             echo "ref=$(yq -r '.ref // .version' "$SPEC")"
             echo "context=$(yq -r '.context // "."' "$SPEC")"
             echo "target=$(yq -r '.target // ""' "$SPEC")"
+            echo "prepare<<EOF"
+            yq -r '.prepare // ""' "$SPEC"
+            echo "EOF"
             echo "build_args<<EOF"
             yq -r '.buildArgs // {} | to_entries | .[] | .key + "=" + .value' "$SPEC"
             echo "EOF"
@@ -61,6 +64,14 @@ jobs:
           repository: ${{ steps.spec.outputs.upstream }}
           ref: ${{ steps.spec.outputs.ref }}
           path: upstream
+
+      # Optional spec `prepare`: a shell script run in the upstream checkout before the build.
+      - name: Prepare upstream
+        if: steps.spec.outputs.prepare != ''
+        working-directory: upstream
+        env:
+          PREPARE: ${{ steps.spec.outputs.prepare }}
+        run: bash -euo pipefail -c "$PREPARE"
 
       - name: Free disk space
         if: inputs.free-disk-space
