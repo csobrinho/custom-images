@@ -31,14 +31,5 @@
       "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver-coerced{{/if}}"
     }
   ],
-  "packageRules": [
-    {
-      "description": "Strata tags hotfixes as a 4th part (v0.1.40.1)",
-      "matchDepNames": [
-        "Niko1221/Strata"
-      ],
-      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:\\.(?<build>\\d+))?$"
-    }
-  ],
   "automerge": true
 }

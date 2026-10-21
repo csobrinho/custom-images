@@ -6,11 +6,7 @@ to that directory, so a Renovate bump rebuilds just that image.
 
 | Image                                  | Upstream                                                      | Notes                                   |
 | -------------------------------------- | ------------------------------------------------------------- | --------------------------------------- |
-| `ghcr.io/csobrinho/strata`             | [Niko1221/Strata](https://github.com/Niko1221/Strata)         | sm_120 (RTX 5090), Zen 3, no vision ¹   |
 | `ghcr.io/csobrinho/wolf-nvidia-driver` | [games-on-whales/gow](https://github.com/games-on-whales/gow) | tags: Talos release + its NVIDIA driver |
-
-¹ The engine is built with `-march=znver3` for one AMD EPYC 7J13 host. It may crash with "Illegal
-instruction" on other CPUs: for those, use upstream's own build instead.
 
 ## Layout
 
@@ -27,6 +23,6 @@ instruction" on other CPUs: for those, use upstream's own build instead.
 ## Adding an image
 
 1. Add `images/<name>/image.yaml` with the `# renovate:` comment above `version`.
-2. Copy `.github/workflows/strata.yml`, rename it, and point `paths`, the concurrency group and
-   `image` at the new image.
+2. Copy `.github/workflows/wolf-nvidia-driver.yml` (drop its driver-resolving job), rename it, and
+   point `paths`, the concurrency group and `image` at the new image.
 3. After the first push, set the GHCR package to public so the cluster can pull it.
